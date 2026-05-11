@@ -10,7 +10,7 @@
 ;; Package-Requires: (
 ;;     (emacs   "28.1")
 ;;     (compat  "30.1")
-;;     (cond-let "0.2")
+;;     (cond-let "1.1")
 ;;     (magit    "4.5")
 ;;     (org      "9.7"))
 
@@ -500,8 +500,16 @@ store links to the Magit-Revision mode buffers for these commits."
 ;;   (cond . 0)
 ;;   (interactive . 0))
 ;; read-symbol-shorthands: (
-;;   ("and-let"  . "cond-let--and-let")
-;;   ("if-let"   . "cond-let--if-let")
-;;   ("when-let" . "cond-let--when-let"))
+;;   ("and$"       . "cond-let--and$")
+;;   ("thread$"    . "cond-let--thread$")
+;;   ("when$"      . "cond-let--when$")
+;;   ("and-let*"   . "cond-let--and-let*")
+;;   ("and-let"    . "cond-let--and-let")
+;;   ("if-let*"    . "cond-let--if-let*")
+;;   ("if-let"     . "cond-let--if-let")
+;;   ("when-let*"  . "cond-let--when-let*")
+;;   ("when-let"   . "cond-let--when-let")
+;;   ("while-let*" . "cond-let--while-let*")
+;;   ("while-let"  . "cond-let--while-let"))
 ;; End:
 ;;; orgit.el ends here
