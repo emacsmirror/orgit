@@ -543,10 +543,10 @@ store links to the Magit-Revision mode buffers for these commits."
       ((signal 'org-link-broken
                (list (format "Cannot determine public url for %s" path)))))))
 
-(defun orgit--format-export (backend link)
+(defun orgit--format-export (backend link &optional desc)
   (pcase backend
-    ('html  (format "<a href=\"%s\">%s</a>" link link))
-    ('latex (format "\\href{%s}{%s}" link link))
+    ('html  (format "<a href=\"%s\">%s</a>" link (or desc link)))
+    ('latex (format "\\href{%s}{%s}" link (or desc link)))
     ('ascii link)
     (_      link)))
 
