@@ -433,7 +433,7 @@ store links to the Magit-Revision mode buffers for these commits."
 
 ;;; Export
 
-(defun orgit-export (path desc backend gitvar idx)
+(defun orgit-export (path _desc backend gitvar idx)
   (pcase-let* ((`(,dir ,rev) (split-string path "::"))
                (dir (orgit--repository-directory dir)))
     (cond-let*
@@ -453,8 +453,7 @@ store links to the Magit-Revision mode buffers for these commits."
                              default-directory))))
       ([format (magit-get "orgit" gitvar)]
        (orgit--format-export backend
-                             (format-spec format `((?r . ,rev)))
-                             desc))
+                             (format-spec format `((?r . ,rev)))))
       ([git-url (magit-get "remote" remote "url")]
        [format:name (seq-some (pcase-lambda (`(,regexp . ,formats))
                                 (and (string-match regexp git-url)
@@ -464,15 +463,14 @@ store links to the Magit-Revision mode buffers for these commits."
        (orgit--format-export backend
                              (format-spec (car format:name)
                                           `((?n . ,(cdr format:name))
-                                            (?r . ,rev)))
-                             desc))
+                                            (?r . ,rev)))))
       ((signal 'org-link-broken
                (list (format "Cannot determine public url for %s" path)))))))
 
-(defun orgit--format-export (backend link desc)
+(defun orgit--format-export (backend link)
   (pcase backend
-    ('html  (format "<a href=\"%s\">%s</a>" link desc))
-    ('latex (format "\\href{%s}{%s}" link desc))
+    ('html  (format "<a href=\"%s\">%s</a>" link link))
+    ('latex (format "\\href{%s}{%s}" link link))
     ('ascii link)
     (_      link)))
 
