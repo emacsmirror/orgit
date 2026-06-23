@@ -102,8 +102,6 @@
 (unless (fboundp 'org-link-store-props)
   (defalias 'org-link-store-props 'org-store-link-props))
 
-(eval-when-compile (require 'subr-x))
-
 ;;; Options
 
 (defgroup orgit nil
