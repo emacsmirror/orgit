@@ -11,6 +11,7 @@
 ;;     (emacs   "29.1")
 ;;     (compat  "31.0")
 ;;     (cond-let "1.1")
+;;     (llama    "1.0")
 ;;     (magit    "4.5")
 ;;     (org      "9.8"))
 
@@ -49,11 +50,14 @@
 ;; Format
 ;; ------
 
-;; The three link types defined here take these forms:
+;; The four link types defined here take these forms:
 ;;
 ;;    orgit:/path/to/repo/            links to a `magit-status' buffer
 ;;    orgit-rev:/path/to/repo/::REV   links to a `magit-revision' buffer
 ;;    orgit-log:/path/to/repo/::ARGS  links to a `magit-log' buffer
+;;    orgit-blob:/path/to/repo/::REV:path/to/file[#N[-M|,C]]
+;;      links to a file- or blob-visiting buffer, optionally at
+;;      a certain line and column (#N,C), or span of lines (#N-M)
 
 ;; Before v1.3.0 only the first revision was stored in `orgit-log'
 ;; links, and all other revisions were discarded.  All other arguments
@@ -89,12 +93,14 @@
 ;;    git config orgit.status https://example.com/repo/overview
 ;;    git config orgit.rev https://example.com/repo/revision/%r
 ;;    git config orgit.log https://example.com/repo/history/%r
+;;    git config orgit.blob https://example.com/repo/history/%r
 
 ;;; Code:
 
 (require 'compat)
 (require 'cond-let)
 (require 'format-spec)
+(require 'llama)
 (require 'magit)
 (require 'org)
 (require 'seq)
@@ -110,39 +116,45 @@
   `(("github.com[:/]\\(.+?\\)\\(?:\\.git\\)?$"
      "https://github.com/%n"
      "https://github.com/%n/commits/%r"
-     "https://github.com/%n/commit/%r")
+     "https://github.com/%n/commit/%r"
+     "https://github.com/%n/blob/%r/%p%C")
     ("gitlab.com[:/]\\(.+?\\)\\(?:\\.git\\)?$"
      "https://gitlab.com/%n"
      "https://gitlab.com/%n/commits/%r"
-     "https://gitlab.com/%n/commit/%r")
+     "https://gitlab.com/%n/commit/%r"
+     "https://gitlab.com/%n/-/blob/%r/%p%l")
     ("\\(?:git@\\)?codeberg.org/\\(.+?\\)\\(?:\\.git\\)?$"
      "https://codeberg.org/%n"
      ;; Redirects to commits/branch/%r.
      "https://codeberg.org/%n/commits/%r"
-     "https://codeberg.org/%n/commit/%r")
+     "https://codeberg.org/%n/commit/%r"
+     "https://codeberg.org/%n/src/commit/%r/%p%L")
     ("git.sr.ht[:/]\\(.+?\\)\\(?:\\.git\\)?$"
      "https://git.sr.ht/%n"
      "https://git.sr.ht/%n/log/%r"
-     "https://git.sr.ht/%n/commit/%r")
+     "https://git.sr.ht/%n/commit/%r"
+     "https://git.sr.ht/%n/tree/%r/%p%l")
     ("bitbucket.org[:/]\\(.+?\\)\\(?:\\.git\\)?$"
      "https://bitbucket.org/%n"
      "https://bitbucket.org/%n/commits/branch/%r"
-     "https://bitbucket.org/%n/commits/%r")
+     "https://bitbucket.org/%n/commits/%r"
+     "https://bitbucket.org/%n/src/%r/%p%X")
     ("git.kernel.org/pub/scm[:/]\\(.+?\\)\\.git$"
      "https://git.kernel.org/pub/scm/%n.git"
      "https://git.kernel.org/pub/scm/%n.git/log/?h=%r"
-     "https://git.kernel.org/pub/scm/%n.git/commit/?id=%r"))
+     "https://git.kernel.org/pub/scm/%n.git/commit/?id=%r"
+     "https://git.kernel.org/pub/scm/%n.git/tree/%p?id=%r%x"))
   "Alist used to translate Git urls to web urls when exporting links.
 
-Each entry has the form (REMOTE-REGEXP STATUS LOG REVISION).  If
-a REMOTE-REGEXP matches the url of the chosen remote then one of
-the corresponding format strings STATUS, LOG or REVISION is used
-according to the major mode of the buffer being linked to.
+Each entry has the form (REMOTE-REGEXP STATUS LOG REVISION BLOB).
+If a REMOTE-REGEXP matches the url of the chosen remote then one
+of the corresponding format strings STATUS, LOG, REVISION or BLOB
+is used according to the major mode of the buffer being linked to.
 
 The first submatch of REMOTE-REGEXP has to match the repository
 identifier (which usually consists of the username and repository
 name).  The %n in the format string is replaced with that match.
-LOG and REVISION additionally have to contain %r which is
+LOG, REVISION and BLOB additionally have to contain %r which is
 replaced with the appropriate revision.
 
 This can be overwritten in individual repositories using the Git
@@ -155,7 +167,8 @@ are defined then `orgit-remote' and `orgit.remote' have no effect."
                        (regexp :tag "Remote regexp")
                        (string :tag "Status format")
                        (string :tag "Log format" :format "%{%t%}:    %v")
-                       (string :tag "Revision format"))))
+                       (string :tag "Revision format")
+                       (string :tag "Blob format"))))
 
 (defcustom orgit-remote "origin"
   "Default remote used when exporting links.
@@ -430,12 +443,79 @@ store links to the Magit-Revision mode buffers for these commits."
             (orgit--current-repository)
             (magit-read-branch-or-commit "Revision"))))
 
+;;; Blob
+
+;;;###autoload
+(with-eval-after-load 'org
+  (with-eval-after-load 'magit
+    (org-link-set-parameters "orgit-blob"
+                             :store    'orgit-blob-store
+                             :follow   'orgit-blob-open
+                             :export   'orgit-blob-export
+                             :complete 'orgit-blob-complete-link)))
+
+;;;###autoload
+(defun orgit-blob-store ()
+  (and-let* ((file magit-buffer-file-name)
+             (oid  (or magit-buffer-revision-oid magit-buffer-blob-oid))
+             (repo (orgit--current-repository))
+             (file (file-relative-name file repo)))
+    (org-link-store-props
+     :type "orgit-blob"
+     :link (cond ((region-active-p)
+                  (format "orgit-blob:%s::%s/%s#%s-%s"  repo oid file
+                          (line-number-at-pos (region-beginning))
+                          (line-number-at-pos (region-end))))
+                 ((format "orgit-blob:%s::%s/%s#%s,%s"  repo oid file
+                          (line-number-at-pos)
+                          (current-column))))
+     :description (format "%s:%s:%s" repo
+                          (magit-rev-abbrev oid)
+                          file))))
+
+;;;###autoload
+(defun orgit-blob-open (path)
+  (pcase-let* ((`(,repo ,value) (split-string path "::"))
+               (`(,rev ,path ,beg ,end ,column) (orgit-blob--split value))
+               (default-directory (orgit--repository-directory repo)))
+    (with-current-buffer (magit-find-file rev path)
+      (when beg
+        (goto-char (point-min))
+        (forward-line (1- beg))
+        (cond (end (set-mark (point))
+                   (forward-line (- end beg)))
+              (column (forward-char column)))))))
+
+;;;###autoload
+(defun orgit-blob-export (path desc format)
+  (orgit-export path desc format 'blob))
+
+;;;###autoload
+(defun orgit-blob-complete-link (&optional arg)
+  (let ((default-directory (magit-read-repository arg)))
+    (apply #'format "orgit-blob:%s::%s"
+           (orgit--current-repository)
+           (magit-find-file-read-args "Find file"))))
+
+(defun orgit-blob--split (value)
+  (if (string-match "\\`\\([^/]+\\)/\\([^#]+\\)\
+\\(?:#\\([0-9]+\\)\\(?:\\([-,]\\)\\([0-9]+\\)\\)?\\)?\\'" value)
+      (list (match-string 1 value)
+            (match-string 2 value)
+            (and (match-string 3 value)
+                 (string-to-number (match-string 3 value)))
+            (and (equal (match-string 4 value) "-")
+                 (string-to-number (match-string 5 value)))
+            (and (equal (match-string 4 value) ",")
+                 (string-to-number (match-string 5 value))))
+    (list value)))
+
 ;;; Export
 
 (defun orgit-export (path _desc backend type)
   (pcase-let* ((`(,dir ,rev) (split-string path "::"))
                (dir (orgit--repository-directory dir))
-               (format-n (pcase type ('status 0) ('log 1) ('rev 2))))
+               (format-n (pcase type ('status 0) ('log 1) ('rev 2) ('blob 3))))
     (cond-let*
       ((not (file-exists-p dir))
        (signal 'org-link-broken
@@ -470,13 +550,29 @@ store links to the Magit-Revision mode buffers for these commits."
     ('ascii link)
     (_      link)))
 
-(defun orgit--format-url (_type format value)
+(defun orgit--format-url (type format value)
   (pcase-let ((`(,format . ,name)
                (if (consp format) format (list format)))
-              (rev value))
+              (`(,rev ,path ,beg ,end)
+               (if (eq type 'blob) (orgit-blob--split value) (list value))))
     (format-spec
      format `((?n . ,name)
-              (?r . ,rev)))))
+              (?r . ,rev)
+              (?p . ,path)
+              (?l . ,(##cond (end (format "#L%s-%s" beg end))
+                             (beg (format "#L%s" beg))
+                             ("")))
+              (?L . ,(##cond (end (format "#L%s-L%s" beg end))
+                             (beg (format "#L%s" beg))
+                             ("")))
+              (?C . ,(##cond (end (format "?plain=1#L%s-L%s" beg end))
+                             (beg (format "?plain=1#L%s" beg))
+                             ("")))
+              (?x . ,(##cond (beg (format "#n%s" beg))
+                             ("")))
+              (?X . ,(##cond (end (format "#lines%s:%s" beg end))
+                             (beg (format "#lines%s" beg))
+                             ("")))))))
 
 ;;; Utilities
 
