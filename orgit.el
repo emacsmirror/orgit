@@ -8,7 +8,7 @@
 
 ;; Package-Version: 2.1.3
 ;; Package-Requires: (
-;;     (emacs   "28.1")
+;;     (emacs   "29.1")
 ;;     (compat  "31.0")
 ;;     (cond-let "1.1")
 ;;     (magit    "4.5")
@@ -92,12 +92,12 @@
 
 ;;; Code:
 
-(require 'cl-lib)
 (require 'compat)
 (require 'cond-let)
 (require 'format-spec)
 (require 'magit)
 (require 'org)
+(require 'seq)
 
 (unless (fboundp 'org-link-store-props)
   (defalias 'org-link-store-props 'org-store-link-props))
@@ -458,12 +458,14 @@ store links to the Magit-Revision mode buffers for these commits."
                              default-directory))))
       ([url (magit-get "orgit" gitvar)]
        (orgit--format-export (format-spec url `((?r . ,rev))) desc backend))
-      ([url (magit-get "remote" remote "url")]
-       [format (cl-find-if (lambda (elt)
-                             (string-match (car elt) url))
-                           orgit-export-alist)]
-       (orgit--format-export (format-spec (nth idx format)
-                                          `((?n . ,(match-string 1 url))
+      ([git-url (magit-get "remote" remote "url")]
+       [format:name (seq-keep (pcase-lambda (`(,regexp . ,formats))
+                                (and (string-match regexp git-url)
+                                     (cons (nth (1- idx) formats)
+                                           (match-string 1 git-url))))
+                              orgit-export-alist)]
+       (orgit--format-export (format-spec (car format:name)
+                                          `((?n . ,(cdr format:name))
                                             (?r . ,rev)))
                              desc backend))
       ((signal 'org-link-broken
