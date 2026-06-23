@@ -487,7 +487,7 @@ store links to the Magit-Revision mode buffers for these commits."
   (let ((dir (or (cdr (assoc repo (magit-repos-alist)))
                  (file-name-as-directory (expand-file-name repo)))))
     (cond ((file-exists-p dir) dir)
-          ((string-match-p "\\`[./]" repo)
+          ((string-prefix-p "./" repo)
            (error "Cannot open link; %S does not exist" dir))
           ((error "Cannot open link; no entry for %S in `%s'"
                   repo 'magit-repository-directories)))))
