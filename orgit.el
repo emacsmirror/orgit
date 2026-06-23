@@ -487,8 +487,8 @@ store links to the Magit-Revision mode buffers for these commits."
               (column (forward-char column)))))))
 
 ;;;###autoload
-(defun orgit-blob-export (path desc format)
-  (orgit-export path desc format 'blob))
+(defun orgit-blob-export (path desc backend _info)
+  (orgit-export path desc backend 'blob))
 
 ;;;###autoload
 (defun orgit-blob-complete-link (&optional arg)
