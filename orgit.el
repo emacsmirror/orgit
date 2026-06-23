@@ -283,8 +283,8 @@ In that case `orgit-rev-store' stores one or more links instead."
   (magit-status-setup-buffer (orgit--repository-directory repo)))
 
 ;;;###autoload
-(defun orgit-status-export (path desc format)
-  (orgit-export path desc format "status" 1))
+(defun orgit-status-export (path desc backend _info)
+  (orgit-export path desc backend "status" 1))
 
 ;;;###autoload
 (defun orgit-status-complete-link (&optional arg)
@@ -336,7 +336,7 @@ In that case `orgit-rev-store' stores one or more links instead."
     (magit-log-setup-buffer revs args files)))
 
 ;;;###autoload
-(defun orgit-log-export (path desc format)
+(defun orgit-log-export (path desc backend _info)
   (pcase-let* ((`(,repo ,args) (split-string path "::"))
                (first-branch (cond ((string-prefix-p "((" args)
                                     (caar (read args)))
@@ -346,7 +346,7 @@ In that case `orgit-rev-store' stores one or more links instead."
     (when (string-prefix-p "--" first-branch)
       (setq first-branch nil))
     (orgit-export (concat repo "::" first-branch)
-                  desc format "log" 2)))
+                  desc backend "log" 2)))
 
 ;;;###autoload
 (defun orgit-log-complete-link (&optional arg)
@@ -426,8 +426,8 @@ store links to the Magit-Revision mode buffers for these commits."
      rev (car (magit-diff-arguments 'magit-revision-mode)) nil)))
 
 ;;;###autoload
-(defun orgit-rev-export (path desc format)
-  (orgit-export path desc format "rev" 3))
+(defun orgit-rev-export (path desc backend _info)
+  (orgit-export path desc backend "rev" 3))
 
 ;;;###autoload
 (defun orgit-rev-complete-link (&optional arg)
@@ -438,7 +438,7 @@ store links to the Magit-Revision mode buffers for these commits."
 
 ;;; Export
 
-(defun orgit-export (path desc format gitvar idx)
+(defun orgit-export (path desc backend gitvar idx)
   (pcase-let* ((`(,dir ,rev) (split-string path "::"))
                (dir (orgit--repository-directory dir)))
     (cond-let*
@@ -457,7 +457,7 @@ store links to the Magit-Revision mode buffers for these commits."
                (list (format "Cannot determine public remote for %s"
                              default-directory))))
       ([url (magit-get "orgit" gitvar)]
-       (orgit--format-export (format-spec url `((?r . ,rev))) desc format))
+       (orgit--format-export (format-spec url `((?r . ,rev))) desc backend))
       ([url (magit-get "remote" remote "url")]
        [format (cl-find-if (lambda (elt)
                              (string-match (car elt) url))
@@ -465,12 +465,12 @@ store links to the Magit-Revision mode buffers for these commits."
        (orgit--format-export (format-spec (nth idx format)
                                           `((?n . ,(match-string 1 url))
                                             (?r . ,rev)))
-                             desc format))
+                             desc backend))
       ((signal 'org-link-broken
                (list (format "Cannot determine public url for %s" path)))))))
 
-(defun orgit--format-export (link desc format)
-  (pcase format
+(defun orgit--format-export (link desc backend)
+  (pcase backend
     ('html  (format "<a href=\"%s\">%s</a>" link desc))
     ('latex (format "\\href{%s}{%s}" link desc))
     ('ascii link)
