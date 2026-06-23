@@ -454,7 +454,7 @@ store links to the Magit-Revision mode buffers for these commits."
       ([url (magit-get "orgit" gitvar)]
        (orgit--format-export (format-spec url `((?r . ,rev))) desc backend))
       ([git-url (magit-get "remote" remote "url")]
-       [format:name (seq-keep (pcase-lambda (`(,regexp . ,formats))
+       [format:name (seq-some (pcase-lambda (`(,regexp . ,formats))
                                 (and (string-match regexp git-url)
                                      (cons (nth (1- idx) formats)
                                            (match-string 1 git-url))))
