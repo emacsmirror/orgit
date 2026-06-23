@@ -115,7 +115,7 @@
      "https://gitlab.com/%n"
      "https://gitlab.com/%n/commits/%r"
      "https://gitlab.com/%n/commit/%r")
-    ("codeberg.org\\(/\\|:git@\\)\\(.+?\\)\\(?:\\.git\\)?$"
+    ("\\(?:git@\\)?codeberg.org/\\(.+?\\)\\(?:\\.git\\)?$"
      "https://codeberg.org/%n"
      ;; Redirects to commits/branch/%r.
      "https://codeberg.org/%n/commits/%r"
