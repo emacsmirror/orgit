@@ -452,18 +452,14 @@ store links to the Magit-Revision mode buffers for these commits."
                (list (format "Cannot determine public remote for %s"
                              default-directory))))
       ([format (magit-get "orgit" (symbol-name type))]
-       (orgit--format-export backend
-                             (format-spec format `((?r . ,rev)))))
+       (orgit--format-export backend (orgit--format-url type format rev)))
       ([git-url (magit-get "remote" remote "url")]
        [format:name (seq-some (pcase-lambda (`(,regexp . ,formats))
                                 (and (string-match regexp git-url)
                                      (cons (nth format-n formats)
                                            (match-string 1 git-url))))
                               orgit-export-alist)]
-       (orgit--format-export backend
-                             (format-spec (car format:name)
-                                          `((?n . ,(cdr format:name))
-                                            (?r . ,rev)))))
+       (orgit--format-export backend (orgit--format-url type format:name rev)))
       ((signal 'org-link-broken
                (list (format "Cannot determine public url for %s" path)))))))
 
@@ -473,6 +469,14 @@ store links to the Magit-Revision mode buffers for these commits."
     ('latex (format "\\href{%s}{%s}" link link))
     ('ascii link)
     (_      link)))
+
+(defun orgit--format-url (_type format value)
+  (pcase-let ((`(,format . ,name)
+               (if (consp format) format (list format)))
+              (rev value))
+    (format-spec
+     format `((?n . ,name)
+              (?r . ,rev)))))
 
 ;;; Utilities
 
