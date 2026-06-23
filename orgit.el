@@ -134,9 +134,9 @@
      "https://bitbucket.org/%n/commits/branch/%r"
      "https://bitbucket.org/%n/commits/%r")
     ("git.kernel.org/pub/scm[:/]\\(.+\\)$"
-     "https://git.kernel.org/cgit/%n"
-     "https://git.kernel.org/cgit/%n/log/?h=%r"
-     "https://git.kernel.org/cgit/%n/commit/?id=%r"))
+     "https://git.kernel.org/pub/scm/%n"
+     "https://git.kernel.org/pub/scm/%n/log/?h=%r"
+     "https://git.kernel.org/pub/scm/%n/commit/?id=%r"))
   "Alist used to translate Git urls to web urls when exporting links.
 
 Each entry has the form (REMOTE-REGEXP STATUS LOG REVISION).  If
