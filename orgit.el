@@ -99,9 +99,6 @@
 (require 'org)
 (require 'seq)
 
-(unless (fboundp 'org-link-store-props)
-  (defalias 'org-link-store-props 'org-store-link-props))
-
 ;;; Options
 
 (defgroup orgit nil
