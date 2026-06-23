@@ -476,9 +476,10 @@ store links to the Magit-Revision mode buffers for these commits."
 ;;; Utilities
 
 (defun orgit--current-repository ()
-  (or (and orgit-store-repository-id
-           (car (rassoc default-directory (magit-repos-alist))))
-      (abbreviate-file-name default-directory)))
+  (abbreviate-file-name
+   (or (and orgit-store-repository-id
+            (car (rassoc default-directory (magit-repos-alist))))
+       (magit-toplevel))))
 
 (defun orgit--repository-directory (repo)
   (let ((dir (or (cdr (assoc repo (magit-repos-alist)))
