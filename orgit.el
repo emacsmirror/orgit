@@ -279,7 +279,7 @@ In that case `orgit-rev-store' stores one or more links instead."
 
 ;;;###autoload
 (defun orgit-status-export (path desc backend _info)
-  (orgit-export path desc backend "status" 1))
+  (orgit-export path desc backend 'status))
 
 ;;;###autoload
 (defun orgit-status-complete-link (&optional arg)
@@ -340,8 +340,7 @@ In that case `orgit-rev-store' stores one or more links instead."
                                    (args))))
     (when (string-prefix-p "--" first-branch)
       (setq first-branch nil))
-    (orgit-export (concat repo "::" first-branch)
-                  desc backend "log" 2)))
+    (orgit-export (concat repo "::" first-branch) desc backend 'log)))
 
 ;;;###autoload
 (defun orgit-log-complete-link (&optional arg)
@@ -422,7 +421,7 @@ store links to the Magit-Revision mode buffers for these commits."
 
 ;;;###autoload
 (defun orgit-rev-export (path desc backend _info)
-  (orgit-export path desc backend "rev" 3))
+  (orgit-export path desc backend 'rev))
 
 ;;;###autoload
 (defun orgit-rev-complete-link (&optional arg)
@@ -433,9 +432,10 @@ store links to the Magit-Revision mode buffers for these commits."
 
 ;;; Export
 
-(defun orgit-export (path _desc backend gitvar idx)
+(defun orgit-export (path _desc backend type)
   (pcase-let* ((`(,dir ,rev) (split-string path "::"))
-               (dir (orgit--repository-directory dir)))
+               (dir (orgit--repository-directory dir))
+               (format-n (pcase type ('status 0) ('log 1) ('rev 2))))
     (cond-let*
       ((not (file-exists-p dir))
        (signal 'org-link-broken
@@ -451,13 +451,13 @@ store links to the Magit-Revision mode buffers for these commits."
        (signal 'org-link-broken
                (list (format "Cannot determine public remote for %s"
                              default-directory))))
-      ([format (magit-get "orgit" gitvar)]
+      ([format (magit-get "orgit" (symbol-name type))]
        (orgit--format-export backend
                              (format-spec format `((?r . ,rev)))))
       ([git-url (magit-get "remote" remote "url")]
        [format:name (seq-some (pcase-lambda (`(,regexp . ,formats))
                                 (and (string-match regexp git-url)
-                                     (cons (nth (1- idx) formats)
+                                     (cons (nth format-n formats)
                                            (match-string 1 git-url))))
                               orgit-export-alist)]
        (orgit--format-export backend
