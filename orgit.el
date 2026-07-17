@@ -514,10 +514,10 @@ store links to the Magit-Revision mode buffers for these commits."
 
 (defun orgit-export (path _desc backend type)
   (pcase-let* ((`(,dir ,rev) (split-string path "::"))
-               (dir (orgit--repository-directory dir))
+               (dir (orgit--repository-directory dir t))
                (format-n (pcase type ('status 0) ('log 1) ('rev 2) ('blob 3))))
     (cond-let*
-      ((not (file-exists-p dir))
+      ((not (and dir (file-exists-p dir)))
        (signal 'org-link-broken
                (list (format "Cannot determine public url for %s %s"
                              path "(which itself does not exist)"))))
@@ -582,10 +582,11 @@ store links to the Magit-Revision mode buffers for these commits."
             (car (rassoc default-directory (magit-repos-alist))))
        (magit-toplevel))))
 
-(defun orgit--repository-directory (repo)
+(defun orgit--repository-directory (repo &optional noerror)
   (let ((dir (or (cdr (assoc repo (magit-repos-alist)))
                  (file-name-as-directory (expand-file-name repo)))))
     (cond ((file-exists-p dir) dir)
+          (noerror nil)
           ((string-prefix-p "./" repo)
            (error "Cannot open link; %S does not exist" dir))
           ((error "Cannot open link; no entry for %S in `%s'"
